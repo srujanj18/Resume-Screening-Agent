@@ -3,7 +3,7 @@ import streamlit as st
 from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, WebRtcMode
 import google.generativeai as genai
 from utils.resume_parser import extract_text_from_pdf
-from utils.interviewer import generate_interview_questions, evaluate_answer
+import utils.interviewer as interviewer
 from utils.report_generator import generate_pdf_report
 from supabase import create_client
 import whisper
@@ -15,13 +15,61 @@ from datetime import datetime
 # ===================== UI CONFIG =====================
 st.set_page_config(page_title="TalentFlow AI - Rooman Internship", layout="wide")
 
-# ===================== CONFIG =====================
-genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-model = genai.GenerativeModel("gemini-2.5-flash")
+# ===================== CONFIG & SECRETS HANDLING =====================
+# Load Gemini API key safely
+gemini_key = st.secrets.get("GEMINI_API_KEY")
+if gemini_key:
+    try:
+        genai.configure(api_key=gemini_key)
+        model = genai.GenerativeModel("gemini-2.5-flash")
+        ai_enabled = True
+    except Exception:
+        model = None
+        ai_enabled = False
+        st.warning("Failed to configure Gemini model. AI features disabled.")
+else:
+    model = None
+    ai_enabled = False
+    st.warning("GEMINI_API_KEY not found in secrets. AI features are disabled. See SECRETS_SETUP.md")
 
-# Create two Supabase clients: one for public operations, one for admin operations
-supabase_public = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
-supabase_admin = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_SERVICE_ROLE_KEY"])
+# Create Supabase clients only if keys exist
+supabase_public = None
+supabase_admin = None
+supabase_url = st.secrets.get("SUPABASE_URL")
+supabase_key = st.secrets.get("SUPABASE_KEY")
+service_role = st.secrets.get("SUPABASE_SERVICE_ROLE_KEY")
+if supabase_url and supabase_key:
+    try:
+        supabase_public = create_client(supabase_url, supabase_key)
+    except Exception:
+        supabase_public = None
+        st.warning("Failed to create Supabase public client. Database features disabled.")
+else:
+    st.info("Supabase public key or URL missing. Database features will be disabled until configured.")
+
+if supabase_url and service_role:
+    try:
+        supabase_admin = create_client(supabase_url, service_role)
+    except Exception:
+        supabase_admin = None
+        st.warning("Failed to create Supabase admin client. Admin DB operations disabled.")
+
+# If AI not enabled, provide safe fallbacks in the interviewer module
+if not ai_enabled:
+    def _fallback_questions(jd, resume_text):
+        return [
+            "Tell me about a project relevant to this job.",
+            "Describe a technical challenge you solved.",
+            "How do you prioritize tasks under tight deadlines?",
+            "Explain a piece of technology from your resume.",
+            "Why are you interested in this role?",
+        ]
+
+    def _fallback_evaluate(question, answer, model=None):
+        return "AI unavailable — placeholder feedback. Configure GEMINI_API_KEY to enable evaluation."
+
+    interviewer.generate_interview_questions = _fallback_questions
+    interviewer.evaluate_answer = _fallback_evaluate
 
 @st.cache_resource
 def load_whisper():
@@ -98,7 +146,7 @@ with tab1:
                 "resume_text": resume_text,
                 "details": result
             }
-            st.session_state.questions = generate_interview_questions(jd, resume_text)
+            st.session_state.questions = interviewer.generate_interview_questions(jd, resume_text)
 
             st.success(f"**{result['name']}** → Resume Score: **{result['score']}/100**")
             st.json(result)
@@ -174,7 +222,7 @@ with tab2:
                 if submit_button and answer:
                     # Evaluate answer
                     with st.spinner("Evaluating your answer..."):
-                        feedback = evaluate_answer(
+                        feedback = interviewer.evaluate_answer(
                             st.session_state.questions[st.session_state.interview_stage],
                             answer,
                             model
