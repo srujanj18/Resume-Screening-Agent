@@ -1,0 +1,10 @@
+streamlit
+google-generativeai
+PyPDF2
+supabase
+openai-whisper
+streamlit-webrtc
+fpdf
+torch
+soundfile
+numpy
