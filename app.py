@@ -1,4 +1,5 @@
 # app.py - TalentFlow AI: Resume Screening + Voice Interview Agent
+# v1.2.0: Robust secrets handling with fallbacks - forces cache bust
 import streamlit as st
 from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, WebRtcMode
 import google.generativeai as genai
