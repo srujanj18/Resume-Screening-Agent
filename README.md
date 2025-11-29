@@ -83,6 +83,7 @@ TalentFlow AI is an intelligent recruitment assistant designed for the Rooman In
 
 ### Live Demo
 A live demo is available at: https://resumescreeningagent-fmuugwqybpqmxvphejkyb3.streamlit.app
+                           https://8hg291mk-8501.inc1.devtunnels.ms/
 
 ## Potential Improvements
 - **Enhanced AI Models**: Integrate more advanced LLMs for better question generation and evaluation accuracy.
