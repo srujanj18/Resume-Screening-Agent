@@ -17,43 +17,76 @@ from datetime import datetime
 st.set_page_config(page_title="TalentFlow AI - Rooman Internship", layout="wide")
 
 # ===================== CONFIG & SECRETS HANDLING =====================
-# Load Gemini API key safely
-gemini_key = st.secrets.get("GEMINI_API_KEY")
+# v1.3.0: Ultra-safe secrets with detailed logging
+import sys
+
+# Try to get secrets safely; log what's available
+try:
+    secrets_dict = dict(st.secrets) if hasattr(st.secrets, '__iter__') else {}
+except:
+    secrets_dict = {}
+
+# Load individual secrets safely
+gemini_key = None
+supabase_url = None
+supabase_key = None
+service_role = None
+
+try:
+    gemini_key = st.secrets.get("GEMINI_API_KEY")
+except:
+    pass
+
+try:
+    supabase_url = st.secrets.get("SUPABASE_URL")
+except:
+    pass
+
+try:
+    supabase_key = st.secrets.get("SUPABASE_KEY")
+except:
+    pass
+
+try:
+    service_role = st.secrets.get("SUPABASE_SERVICE_ROLE_KEY")
+except:
+    pass
+
+# Configure Gemini
+model = None
+ai_enabled = False
 if gemini_key:
     try:
         genai.configure(api_key=gemini_key)
         model = genai.GenerativeModel("gemini-2.5-flash")
         ai_enabled = True
-    except Exception:
-        model = None
-        ai_enabled = False
-        st.warning("Failed to configure Gemini model. AI features disabled.")
+    except Exception as e:
+        st.warning(f"Failed to configure Gemini: {str(e)}")
 else:
-    model = None
-    ai_enabled = False
-    st.warning("GEMINI_API_KEY not found in secrets. AI features are disabled. See SECRETS_SETUP.md")
+    st.warning("⚠️ GEMINI_API_KEY not found in Streamlit Cloud secrets. AI features disabled.")
 
-# Create Supabase clients only if keys exist
+# Create Supabase clients
 supabase_public = None
 supabase_admin = None
-supabase_url = st.secrets.get("SUPABASE_URL")
-supabase_key = st.secrets.get("SUPABASE_KEY")
-service_role = st.secrets.get("SUPABASE_SERVICE_ROLE_KEY")
+
 if supabase_url and supabase_key:
     try:
         supabase_public = create_client(supabase_url, supabase_key)
-    except Exception:
-        supabase_public = None
-        st.warning("Failed to create Supabase public client. Database features disabled.")
+    except Exception as e:
+        st.warning(f"Failed to create Supabase public client: {str(e)}")
 else:
-    st.info("Supabase public key or URL missing. Database features will be disabled until configured.")
+    if not supabase_url:
+        st.info("⚠️ SUPABASE_URL not configured")
+    if not supabase_key:
+        st.info("⚠️ SUPABASE_KEY not configured")
 
 if supabase_url and service_role:
     try:
         supabase_admin = create_client(supabase_url, service_role)
-    except Exception:
-        supabase_admin = None
-        st.warning("Failed to create Supabase admin client. Admin DB operations disabled.")
+    except Exception as e:
+        st.warning(f"Failed to create Supabase admin client: {str(e)}")
+elif service_role is None:
+    st.info("ℹ️ SUPABASE_SERVICE_ROLE_KEY optional (admin DB save disabled)")
 
 # If AI not enabled, provide safe fallbacks in the interviewer module
 if not ai_enabled:
