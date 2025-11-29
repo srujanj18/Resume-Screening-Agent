@@ -19,7 +19,9 @@ st.set_page_config(page_title="TalentFlow AI - Rooman Internship", layout="wide"
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 model = genai.GenerativeModel("gemini-2.5-flash")
 
-supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
+# Create two Supabase clients: one for public operations, one for admin operations
+supabase_public = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
+supabase_admin = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_SERVICE_ROLE_KEY"])
 
 @st.cache_resource
 def load_whisper():
@@ -108,112 +110,82 @@ with tab2:
         st.write(f"**Resume Score:** {st.session_state.candidate['resume_score']}/100")
 
         # Interview type selection
-        interview_type = st.radio("Select Interview Type:", ["Text", "Voice", "Video"], horizontal=True, key="interview_type_radio")
+        interview_type = st.radio("Select Interview Type:", ["Text", "Voice"], horizontal=True, key="interview_type_radio")
         st.session_state.interview_type = interview_type
 
         if st.session_state.interview_stage < len(st.session_state.questions):
-            st.info(f"Question {st.session_state.interview_stage + 1}/8: {st.session_state.questions[st.session_state.interview_stage]}")
-
-            # Display chat history
+            # Display previous answers in chat history
             for i, answer_data in enumerate(st.session_state.answers):
                 st.chat_message("user").write(f"Q{i+1}: {answer_data['question']}\n\nA: {answer_data['answer']}")
                 st.chat_message("assistant").write(answer_data['feedback'])
 
-            # Current question input based on type
-            if st.session_state.interview_type == "Text":
-                answer = st.text_input("Your answer:", key=f"answer_{st.session_state.interview_stage}")
-                submit_button = st.button("Submit Answer", type="primary")
-            elif st.session_state.interview_type == "Voice":
-                st.write("🎤 Record your voice answer:")
-                audio_processor = AudioProcessor()
-                webrtc_ctx = webrtc_streamer(
-                    key=f"audio_{st.session_state.interview_stage}",
-                    mode=WebRtcMode.SENDONLY,
-                    audio_processor_factory=lambda: audio_processor,
-                    media_stream_constraints={"audio": True, "video": False}
-                )
+            # Display current question
+            st.info(f"Question {st.session_state.interview_stage + 1}/{len(st.session_state.questions)}: {st.session_state.questions[st.session_state.interview_stage]}")
 
-                if st.button("Process Voice Answer", type="primary"):
-                    if audio_processor.frames:
-                        # Combine audio frames
-                        audio_data = np.concatenate(audio_processor.frames, axis=0)
-                        # Save to temporary file
-                        temp_audio_path = f"temp_audio_{st.session_state.interview_stage}.wav"
-                        sf.write(temp_audio_path, audio_data, 16000)
-
-                        # Transcribe with Whisper
-                        with st.spinner("Transcribing audio..."):
-                            result = whisper_model.transcribe(temp_audio_path)
-                            answer = result["text"].strip()
-
-                        # Clean up
-                        if os.path.exists(temp_audio_path):
-                            os.remove(temp_audio_path)
-
-                        st.success(f"Transcribed: {answer}")
-                        submit_button = True
-                    else:
-                        st.error("No audio recorded. Please record your answer first.")
-                        submit_button = False
-                else:
-                    submit_button = False
-            else:  # Video
-                st.write("📹 Record your video answer:")
-                video_processor = AudioProcessor()
-                webrtc_ctx = webrtc_streamer(
-                    key=f"video_{st.session_state.interview_stage}",
-                    mode=WebRtcMode.SENDONLY,
-                    audio_processor_factory=lambda: video_processor,
-                    media_stream_constraints={"audio": True, "video": True}
-                )
-
-                if st.button("Process Video Answer", type="primary"):
-                    if video_processor.frames:
-                        # Combine audio frames from video
-                        audio_data = np.concatenate(video_processor.frames, axis=0)
-                        # Save to temporary file
-                        temp_video_audio_path = f"temp_video_audio_{st.session_state.interview_stage}.wav"
-                        sf.write(temp_video_audio_path, audio_data, 16000)
-
-                        # Transcribe with Whisper
-                        with st.spinner("Transcribing video audio..."):
-                            result = whisper_model.transcribe(temp_video_audio_path)
-                            answer = result["text"].strip()
-
-                        # Clean up
-                        if os.path.exists(temp_video_audio_path):
-                            os.remove(temp_video_audio_path)
-
-                        st.success(f"Transcribed from video: {answer}")
-                        submit_button = True
-                    else:
-                        st.error("No video/audio recorded. Please record your answer first.")
-                        submit_button = False
-                else:
-                    submit_button = False
-
-            if submit_button and answer:
-                st.chat_message("user").write(f"Q{st.session_state.interview_stage + 1}: {st.session_state.questions[st.session_state.interview_stage]}\n\nA: {answer}")
-
-                # Evaluate answer
-                feedback = evaluate_answer(
-                    st.session_state.questions[st.session_state.interview_stage],
-                    answer,
-                    model
-                )
-                st.chat_message("assistant").write(feedback)
-                st.session_state.current_feedback = feedback
-
-                st.session_state.answers.append({
-                    "question": st.session_state.questions[st.session_state.interview_stage],
-                    "answer": answer,
-                    "feedback": feedback
-                })
-
-                # Next question button
-                if st.button("Next Question", type="secondary"):
+            # Check if current question has been answered
+            if st.session_state.interview_stage < len(st.session_state.answers):
+                # Question already answered, show next question button
+                st.success("✓ Answer submitted!")
+                if st.button("Next Question", type="secondary", key=f"next_{st.session_state.interview_stage}"):
                     st.session_state.interview_stage += 1
-                    st.session_state.current_feedback = ""
+                    st.rerun()
+            else:
+                # Question not yet answered, show input fields
+                answer = None
+                submit_button = False
+
+                # Current question input based on type
+                if st.session_state.interview_type == "Text":
+                    answer = st.text_input("Your answer:", key=f"answer_{st.session_state.interview_stage}", placeholder="Type your answer here...")
+                    submit_button = st.button("Submit Answer", type="primary", key=f"submit_{st.session_state.interview_stage}")
+                elif st.session_state.interview_type == "Voice":
+                    st.write("🎤 Record your voice answer:")
+                    audio_processor = AudioProcessor()
+                    webrtc_ctx = webrtc_streamer(
+                        key=f"audio_{st.session_state.interview_stage}",
+                        mode=WebRtcMode.SENDONLY,
+                        audio_processor_factory=lambda: audio_processor,
+                        media_stream_constraints={"audio": True, "video": False}
+                    )
+
+                    if st.button("Process Voice Answer", type="primary", key=f"process_audio_{st.session_state.interview_stage}"):
+                        if audio_processor.frames:
+                            # Combine audio frames
+                            audio_data = np.concatenate(audio_processor.frames, axis=0)
+                            # Save to temporary file
+                            temp_audio_path = f"temp_audio_{st.session_state.interview_stage}.wav"
+                            sf.write(temp_audio_path, audio_data, 16000)
+
+                            # Transcribe with Whisper
+                            with st.spinner("Transcribing audio..."):
+                                result = whisper_model.transcribe(temp_audio_path)
+                                answer = result["text"].strip()
+
+                            # Clean up
+                            if os.path.exists(temp_audio_path):
+                                os.remove(temp_audio_path)
+
+                            st.success(f"Transcribed: {answer}")
+                            submit_button = True
+                        else:
+                            st.error("No audio recorded. Please record your answer first.")
+                            submit_button = False
+
+                if submit_button and answer:
+                    # Evaluate answer
+                    with st.spinner("Evaluating your answer..."):
+                        feedback = evaluate_answer(
+                            st.session_state.questions[st.session_state.interview_stage],
+                            answer,
+                            model
+                        )
+                    
+                    st.session_state.answers.append({
+                        "question": st.session_state.questions[st.session_state.interview_stage],
+                        "answer": answer,
+                        "feedback": feedback
+                    })
+                    
                     st.rerun()
         else:
             st.success("All questions asked! Generating report...")
@@ -227,9 +199,9 @@ with tab3:
         final_score = (st.session_state.candidate["resume_score"] + interview_score) // 2
 
         if st.button("Generate Final Report & Save", type="primary"):
-            # Save to Supabase
+            # Save to Supabase using admin client to bypass RLS
             try:
-                supabase.table("candidates").insert({
+                supabase_admin.table("candidates").insert({
                     "name": st.session_state.candidate["name"],
                     "resume_score": st.session_state.candidate["resume_score"],
                     "interview_score": interview_score,
@@ -237,9 +209,11 @@ with tab3:
                     "created_at": datetime.now().isoformat()
                 }).execute()
                 db_saved = True
+                st.success("Report generated and saved to database!")
             except Exception as e:
                 st.warning(f"Database save failed: {e}. Proceeding with report generation.")
                 db_saved = False
+                st.success("Report generated! (Database save skipped)")
 
             # Generate PDF
             pdf_bytes = generate_pdf_report(st.session_state.candidate, st.session_state.answers, final_score)
@@ -249,9 +223,5 @@ with tab3:
                 file_name=f"{st.session_state.candidate['name']}_TalentFlow_Report.pdf",
                 mime="application/pdf"
             )
-            if db_saved:
-                st.success("Report generated and saved to database!")
-            else:
-                st.success("Report generated! (Database save failed due to RLS policy)")
     else:
         st.info("Complete interview to generate report")
