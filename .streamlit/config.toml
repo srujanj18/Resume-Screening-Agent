@@ -1,20 +1,9 @@
-[global]
-
-# If false, makes your Streamlit script start as a module in order to set sys.path correctly
-developmentMode = false
-
-# Allows you to type a variable or string by itself in a single line of Python code to write it to the app.
-dataFrameSerialization = "legacy"
-
 [logger]
 
 # Level of logging: 'error', 'warning', 'info', 'debug'.
 level = "info"
 
 [client]
-
-# Whether to enable st.cache.
-caching = true
 
 # If false, will attempt to open the browser automatically.
 showSidebarNavigation = true
@@ -39,13 +28,13 @@ fileWatcherType = "auto"
 cookieSecret = "a-random-key-appears-here"
 
 # If false, will attempt to open the browser automatically.
-headless = false
+headless = true
 
 # Automatically rerun script when the file is modified on disk.
 runOnSave = false
 
 # The address where the server will listen for client and browser connections.
-address = "localhost"
+address = "0.0.0.0"
 
 # The port where the server will listen for client and browser connections.
 port = 8501
