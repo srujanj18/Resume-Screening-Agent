@@ -138,7 +138,7 @@ if "audio_frames" not in st.session_state:
 if "recording" not in st.session_state:
     st.session_state.recording = False
 st.title("TalentFlow AI – Resume Screener + Voice Interview Agent")
-st.markdown("**Rooman Technologies Internship Challenge 2025 | Combined Agent #2 + #3**")
+st.markdown("**Rooman Technologies Internship Challenge 2025**")
 
 tab1, tab2, tab3 = st.tabs(["Resume Screening", "Interview", "Final Report"])
 
