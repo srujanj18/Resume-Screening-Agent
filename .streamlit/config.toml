@@ -33,8 +33,8 @@ headless = true
 # Automatically rerun script when the file is modified on disk.
 runOnSave = false
 
-# The address where the server will listen for client and browser connections.
-address = "0.0.0.0"
+# The address where the server will listen for client and server connections.
+address = "localhost"
 
 # The port where the server will listen for client and browser connections.
 port = 8501
@@ -43,10 +43,10 @@ port = 8501
 baseUrlPath = ""
 
 # Enables support for Cross-Origin Request Sharing (CORS) protection, for added security.
-enableCORS = false
+enableCORS = true
 
 # Enables support for Cross-Site Request Forgery (XSRF) protection, for added security.
-enableXsrfProtection = true
+enableXsrfProtection = false
 
 # Max size, in megabytes, for files uploaded with the file_uploader.
 maxUploadSize = 200
