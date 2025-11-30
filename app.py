@@ -12,6 +12,7 @@ import numpy as np
 import soundfile as sf
 import os
 from datetime import datetime
+import json
 
 # ===================== UI CONFIG =====================
 st.set_page_config(page_title="TalentFlow AI - Rooman Internship", layout="wide")
@@ -107,7 +108,7 @@ if not ai_enabled:
 
 @st.cache_resource
 def load_whisper():
-    return whisper.load_model("turbo")
+    return whisper.load_model("base")
 
 whisper_model = load_whisper()
 
@@ -169,7 +170,7 @@ with tab1:
             """
             response = model.generate_content(prompt)
             try:
-                result = eval(response.text.strip("```json").strip("```"))
+                result = json.loads(response.text.strip("```json").strip("```"))
             except:
                 result = {"name": "Candidate", "score": 85, "match_percentage": "85%", "strengths": [], "gaps": [], "summary": "Good fit"}
 
