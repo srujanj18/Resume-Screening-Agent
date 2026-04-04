@@ -1,5 +1,10 @@
 # Quick Deploy to Streamlit Cloud - 5 Minutes
 
+## ✅ Prerequisites
+- Your repository is ready at: `https://github.com/srujanj18/Resume-Screening-Agent`
+- All dependencies are configured
+- Secrets are prepared (see below)
+
 ## Step 1: Go to Streamlit Cloud
 Visit: https://share.streamlit.io
 
@@ -16,7 +21,7 @@ Visit: https://share.streamlit.io
 
 3. Click **"Deploy!"**
 
-## Step 4: Add Secrets (IMPORTANT!)
+## Step 4: Add Secrets (CRITICAL!)
 Wait for deployment to complete, then:
 
 1. Click the **three dots (⋮)** in top right
@@ -25,9 +30,28 @@ Wait for deployment to complete, then:
 4. Add your secrets one by one:
 
 ```
-GEMINI_API_KEY=your_gemini_key_here
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_KEY=your_anon_key_here
+GEMINI_API_KEY=AIzaSyB_3ofQnZ4B9H_jVI6DlInUMDYuSpxxKVE
+SUPABASE_URL=https://mzwrldtbkploewvlxfmb.supabase.co
+SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16d3JsZHRia3Bsb2V3dmx4Zm1iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQzMDc3MzksImV4cCI6MjA3OTg4MzczOX0.sQ3Olnjg5Ho6HsDxJb2kcR0JizTB2xLdFGNNgMO_PAM
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16d3JsZHRia3Bsb2V3dmx4Zm1iIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NDMwNzczOSwiZXhwIjoyMDc5ODgzNzM5fQ.yrrzQUbYvA-85XsNN_LyhmRXE4JTwzTku8hISQxGt28
+```
+
+## Step 5: Redeploy
+After adding secrets:
+1. Go back to your app
+2. Click **"Redeploy"** button
+3. Wait for deployment to complete
+
+## 🎉 Your App is Live!
+Your TalentFlow AI app will be available at:
+```
+https://talentflow-srujanj18.streamlit.app
+```
+
+## Troubleshooting
+- **Build fails**: Check the logs for missing dependencies
+- **Secrets not working**: Ensure secrets are added exactly as shown (no quotes)
+- **App crashes**: Check Streamlit Cloud logs for error messages
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
 ```
 
