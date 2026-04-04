@@ -1,9 +1,5 @@
-# System dependencies for Streamlit Cloud deployment
-# Required for audio processing (Whisper, soundfile)
 ffmpeg
 libsndfile1
-# Required for torch
 libgomp1
-# General dependencies
 build-essential
 python3-dev
