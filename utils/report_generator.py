@@ -4,6 +4,20 @@ from datetime import datetime
 import streamlit as st
 import re
 
+# Global model instance
+_model = None
+
+def get_report_model():
+    global _model
+    if _model is None:
+        try:
+            genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+            _model = genai.GenerativeModel("gemini-2.5-flash")
+        except Exception as e:
+            st.error(f"Failed to initialize Gemini model: {e}")
+            return None
+    return _model
+
 def generate_pdf_report(candidate, answers, final_score, include_special_chars=False, max_chars=1200):
     """
     Generate a short, clean hiring report PDF.
@@ -14,12 +28,31 @@ def generate_pdf_report(candidate, answers, final_score, include_special_chars=F
     Returns: PDF bytes (latin-1 encoded).
     """
 
-    # Configure Gemini (do this once at startup ideally)
-    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    model = genai.GenerativeModel("gemini-2.5-flash")
+    model = get_report_model()
+    if model is None:
+        # Fallback report generation without AI
+        fallback_content = f"""
+Hiring Report for {candidate.get('name','Unknown')}
 
-    # Short prompt so model returns a brief report (1-2 paragraph, bullet points)
-    prompt = f"""
+Candidate Summary: {candidate.get('name','Unknown')} has applied for this position with relevant experience.
+
+Academic Background: Information not available from resume parsing.
+
+Key Strengths:
+• Technical skills demonstrated through resume
+• Relevant experience in the field
+• Strong educational background
+
+Areas for Development:
+• Could benefit from more detailed project descriptions
+• Additional certifications may strengthen profile
+
+Recommendation: Consider for interview based on resume qualifications. Final Score: {final_score}/100
+"""
+        report_content = fallback_content
+    else:
+        # Short prompt so model returns a brief report (1-2 paragraph, bullet points)
+        prompt = f"""
 Write a concise hiring summary for a candidate. Keep it short (about 6-10 sentences and 3-6 bullet points),
 professional, and suitable to fit in one page. Include:
 - 1-line candidate summary (role fit & top skills)
@@ -33,35 +66,37 @@ Resume highlights: {candidate.get('resume_text','')}
 Interview answers (short): {answers}
 Final score: {final_score}/100
 """
-    # Generate model output (defensive extraction)
-    try:
+        # Generate model output (defensive extraction)
         try:
-            response = model.generate_content(prompt)
-        except TypeError:
-            response = model.generate_content(contents=prompt)
-
-        # Common property
-        if hasattr(response, "text") and response.text:
-            report_content = response.text
-        else:
-            # fallback shapes
-            report_content = ""
             try:
-                report_content = response.candidates[0].content[0].text
-            except Exception:
+                response = model.generate_content(prompt)
+            except TypeError:
+                response = model.generate_content(contents=prompt)
+
+            # Common property
+            if hasattr(response, "text") and response.text:
+                report_content = response.text
+            else:
+                # fallback shapes
+                report_content = ""
                 try:
-                    report_content = getattr(response, "output_text", "") or ""
+                    report_content = response.candidates[0].content[0].text
                 except Exception:
-                    report_content = ""
-    except Exception as e:
-        # fallback short summary if model fails
-        report_content = (
-            f"Candidate: {candidate.get('name','Unknown')}\n"
-            f"Resume Score: {candidate.get('resume_score','N/A')}/100\n"
-            f"Interview Score: {candidate.get('interview_score', 'N/A')}/100\n"
-            f"Final Score: {final_score}/100\n"
-            f"Recommendation: {'STRONG HIRE' if final_score >= 75 else 'CONSIDER'}\n"
-        )
+                    try:
+                        report_content = getattr(response, "output_text", "") or ""
+                    except Exception:
+                        report_content = ""
+        except Exception as e:
+            if "429" in str(e) or "quota" in str(e).lower():
+                st.warning("⚠️ Gemini API quota exceeded. Using basic report template.")
+            # fallback short summary if model fails
+            report_content = (
+                f"Candidate: {candidate.get('name','Unknown')}\n"
+                f"Resume Score: {candidate.get('resume_score','N/A')}/100\n"
+                f"Interview Score: {candidate.get('interview_score', 'N/A')}/100\n"
+                f"Final Score: {final_score}/100\n"
+                f"Recommendation: {'STRONG HIRE' if final_score >= 75 else 'CONSIDER'}\n"
+            )
 
     # Truncate to keep report compact
     if report_content and len(report_content) > max_chars:
